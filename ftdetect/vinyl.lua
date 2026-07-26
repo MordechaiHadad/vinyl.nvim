@@ -1,5 +1,5 @@
 vim.filetype.add({
-  extension = {
-    vn = "vinyl",
-  },
+    extension = {
+        vn = "vinyl",
+    },
 })
