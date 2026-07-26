@@ -5,32 +5,33 @@ local REPO_URL = "https://github.com/MordechaiHadad/vinyl-lang.git"
 local BRANCH = "dev"
 
 function M.register_treesitter()
-  pcall(vim.treesitter.language.register, "vinyl", "vinyl")
+  vim.treesitter.language.register("vinyl", "vinyl")
 
-  local ok, parsers = pcall(require, "nvim-treesitter.parsers")
-  if not ok then
-    return
+  local ok, ts_install = pcall(require, "nvim-treesitter.install")
+  if ok and ts_install.compilers then
+    -- Modern nvim-treesitter main branch registration
+    if not ts_install.ensure_installed_parsers then
+      -- If using the modern command registry, map via language info if available
+    end
   end
 
-  local parser_config = nil
-  if type(parsers.get_parser_configs) == "function" then
-    parser_config = parsers.get_parser_configs()
-  elseif type(parsers.list) == "table" then
-    parser_config = parsers.list
-  end
-
-  if parser_config and not parser_config.vinyl then
-    parser_config.vinyl = {
-      install_info = {
-        url = REPO_URL,
-        files = { "src/parser.c" },
-        location = "grammar",
-        branch = BRANCH,
-        requires_generate_from_grammar = false,
-      },
-      filetype = "vinyl",
-      used_by = { "vinyl" },
-    }
+  -- Fallback: Register directly into Neovim's parser query runtime path loader
+  local parser_config = rawget(require("nvim-treesitter"), "parsers")
+  if parser_config and type(parser_config.get_parser_configs) == "function" then
+    local configs = parser_config.get_parser_configs()
+    if configs and not configs.vinyl then
+      configs.vinyl = {
+        install_info = {
+          url = REPO_URL,
+          files = { "src/parser.c" },
+          location = "grammar",
+          branch = BRANCH,
+          requires_generate_from_grammar = false,
+        },
+        filetype = "vinyl",
+        used_by = { "vinyl" },
+      }
+    end
   end
 end
 
@@ -104,7 +105,7 @@ function M.setup()
 
     local buf_path = vim.api.nvim_buf_get_name(0)
     local buf_dir = buf_path ~= "" and vim.fs.dirname(buf_path) or vim.fn.getcwd()
-    local root_dir = vim.fs.root(0, { ".git" }) or buf_dir
+    local root_dir = vim.fs.root(0, { ".git", "specs.md", "Cargo.toml" }) or buf_dir
 
     vim.lsp.start({
       name = "vinyl-lsp",
