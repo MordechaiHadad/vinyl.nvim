@@ -4,7 +4,6 @@ local LSP_BIN = "vinyl-lsp"
 local REPO_URL = "https://github.com/MordechaiHadad/vinyl-lang.git"
 local BRANCH = "dev"
 
---- Safe registration for nvim-treesitter across breaking API changes
 function M.register_treesitter()
     -- Core Neovim filetype-to-parser mapping
     pcall(vim.treesitter.language.register, "vinyl", "vinyl")
@@ -14,7 +13,6 @@ function M.register_treesitter()
         return
     end
 
-    -- Handle API variations (legacy vs newer nvim-treesitter releases)
     local parser_config = nil
     if type(parsers.get_parser_configs) == "function" then
         parser_config = parsers.get_parser_configs()
@@ -26,8 +24,8 @@ function M.register_treesitter()
         parser_config.vinyl = {
             install_info = {
                 url = REPO_URL,
-                files = { "src/parser.c" }, -- Add "src/scanner.c" if your grammar uses a custom scanner
-                location = "grammar", -- Points to grammar/ inside the monorepo
+                files = { "src/parser.c" },
+                location = "grammar",
                 branch = BRANCH,
             },
             filetype = "vinyl",
@@ -35,10 +33,8 @@ function M.register_treesitter()
     end
 end
 
---- Ensures vinyl-lsp exists in PATH or builds it asynchronously via cargo
 ---@param callback function(success: boolean)
 local function ensure_lsp(callback)
-    -- 1. Executable already available in PATH
     if vim.fn.executable(LSP_BIN) == 1 then
         callback(true)
         return
@@ -55,7 +51,6 @@ local function ensure_lsp(callback)
         return
     end
 
-    -- 3. Asynchronously build via cargo
     vim.notify(
         "[vinyl.nvim] 'vinyl-lsp' not found. Installing from git (" .. BRANCH .. " branch)...",
         vim.log.levels.INFO
@@ -109,7 +104,9 @@ function M.setup()
             return
         end
 
-        local root_dir = vim.fs.root(0, { ".git", "specs.md" }) or vim.fs.dirname(vim.api.nvim_buf_get_name(0))
+        local buf_path = vim.api.nvim_buf_get_name(0)
+        local buf_dir = buf_path ~= "" and vim.fs.dirname(buf_path) or vim.fn.getcwd()
+        local root_dir = vim.fs.root(0, { ".git", "specs.md", "Cargo.toml" }) or buf_dir
 
         vim.lsp.start({
             name = "vinyl-lsp",
