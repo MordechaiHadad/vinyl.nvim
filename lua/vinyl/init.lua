@@ -4,24 +4,30 @@ local LSP_BIN = "vinyl-lsp"
 local REPO_URL = "https://github.com/MordechaiHadad/vinyl-lang.git"
 local BRANCH = "dev"
 
---- Registers the Vinyl parser mapping and nvim-treesitter build configuration
+--- Safe registration for nvim-treesitter across breaking API changes
 function M.register_treesitter()
-    -- Explicitly register the "vinyl" filetype to the "vinyl" tree-sitter parser
+    -- Core Neovim filetype-to-parser mapping
     pcall(vim.treesitter.language.register, "vinyl", "vinyl")
 
-    -- Register source path with nvim-treesitter (allows :TSInstall vinyl)
     local ok, parsers = pcall(require, "nvim-treesitter.parsers")
     if not ok then
         return
     end
 
-    local parser_config = parsers.get_parser_configs()
-    if not parser_config.vinyl then
+    -- Handle API variations (legacy vs newer nvim-treesitter releases)
+    local parser_config = nil
+    if type(parsers.get_parser_configs) == "function" then
+        parser_config = parsers.get_parser_configs()
+    elseif type(parsers.list) == "table" then
+        parser_config = parsers.list
+    end
+
+    if parser_config and not parser_config.vinyl then
         parser_config.vinyl = {
             install_info = {
                 url = REPO_URL,
-                files = { "src/parser.c" }, -- add "src/scanner.c" if your grammar uses an external scanner
-                location = "grammar", -- points to vinyl-lang/grammar/ inside the monorepo
+                files = { "src/parser.c" }, -- Add "src/scanner.c" if your grammar uses a custom scanner
+                location = "grammar", -- Points to grammar/ inside the monorepo
                 branch = BRANCH,
             },
             filetype = "vinyl",
@@ -29,16 +35,16 @@ function M.register_treesitter()
     end
 end
 
---- Ensures vinyl-lsp exists in PATH, or builds it asynchronously via cargo
+--- Ensures vinyl-lsp exists in PATH or builds it asynchronously via cargo
 ---@param callback function(success: boolean)
 local function ensure_lsp(callback)
-    -- 1. Check if executable already exists in PATH
+    -- 1. Executable already available in PATH
     if vim.fn.executable(LSP_BIN) == 1 then
         callback(true)
         return
     end
 
-    -- 2. Check if Cargo is installed
+    -- 2. Cargo installed?
     if vim.fn.executable("cargo") == 0 then
         vim.notify(
             "[vinyl.nvim] 'vinyl-lsp' was not found in PATH and 'cargo' is not installed.\n" ..
@@ -49,7 +55,7 @@ local function ensure_lsp(callback)
         return
     end
 
-    -- 3. Run cargo install asynchronously from git
+    -- 3. Asynchronously build via cargo
     vim.notify(
         "[vinyl.nvim] 'vinyl-lsp' not found. Installing from git (" .. BRANCH .. " branch)...",
         vim.log.levels.INFO
@@ -94,12 +100,10 @@ local function ensure_lsp(callback)
     end
 end
 
---- Main setup function called on filetype activation
+--- Main setup function called on filetype trigger
 function M.setup()
-    -- Register Tree-sitter configurations
     M.register_treesitter()
 
-    -- Bootstrap LSP and attach client
     ensure_lsp(function(success)
         if not success then
             return
