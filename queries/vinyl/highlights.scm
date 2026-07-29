@@ -1,4 +1,5 @@
 ;; --- Fallbacks / Baselines (Must be at the top) ---
+;; --- Fallbacks / Baselines (Must be at the top) ---
 (value_identifier) @variable
 (type_identifier) @type
 
@@ -28,12 +29,13 @@
 ] @keyword.modifier
 
 "import" @keyword.import
+(import_prefix) @keyword.import
 
 (unary_expression operator: "not" @keyword.operator)
 (binary_expression operator: ["and" "or"] @keyword.operator)
 
 ;; --- Imports & Modules ---
-(import_path [
+(import_name [
   (value_identifier)
   (type_identifier)
 ] @module)
@@ -81,14 +83,17 @@
 
 ;; --- Fields & Properties ---
 (field_definition name: (value_identifier) @property)
-(field_access_expression field: (value_identifier) @property)
-(field_access_expression field: (integer_literal) @property)
+(field_access_expression field: [
+  (value_identifier)
+  (integer_literal)
+] @property)
 (struct_literal_fields name: (value_identifier) @property)
 (field_pattern name: (value_identifier) @property)
 
 ;; --- Variables, Parameters & Patterns ---
 (parameter name: (value_identifier) @variable.parameter)
 (let_declaration name: (value_identifier) @variable)
+(identifier_pattern) @variable
 (wildcard_pattern) @variable.builtin
 
 ;; --- Literals ---
