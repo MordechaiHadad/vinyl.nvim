@@ -2,20 +2,27 @@ local M = {}
 
 local REPO_URL = "https://github.com/MordechaiHadad/vinyl-lang.git"
 local RELEASE_URL = "https://github.com/MordechaiHadad/vinyl-lang/releases/latest/download/"
-local BRANCH = "dev"
+local LSP_BIN = "vinyl-lsp"
 
 local function get_paths()
     local plugin_dir = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h:h:h")
-    local bin_dir = plugin_dir .. "/bin"
     local is_windows = vim.uv.os_uname().sysname:match("Windows") ~= nil
-    local bin_name = is_windows and "vinyl-lsp.exe" or "vinyl-lsp"
-    local local_bin = bin_dir .. "/" .. bin_name
+    local bin_name = is_windows and (LSP_BIN .. ".exe") or LSP_BIN
+
+    local data_path = vim.fn.stdpath("data")
+    local mason_bin = data_path .. "/mason/bin/" .. bin_name
+    local mason_pkg_dir = data_path .. "/mason/packages/" .. LSP_BIN
+    local plugin_bin_dir = plugin_dir .. "/bin"
+    local plugin_local_bin = plugin_bin_dir .. "/" .. bin_name
 
     return {
         plugin_dir = plugin_dir,
-        bin_dir = bin_dir,
-        local_bin = local_bin,
         is_windows = is_windows,
+        bin_name = bin_name,
+        mason_bin = mason_bin,
+        mason_pkg_dir = mason_pkg_dir,
+        plugin_bin_dir = plugin_bin_dir,
+        plugin_local_bin = plugin_local_bin,
     }
 end
 
@@ -35,29 +42,30 @@ local function get_target_asset()
     return nil
 end
 
-local function download_binary(paths, asset_name, callback)
-    vim.fn.mkdir(paths.bin_dir, "p")
+local function download_binary(paths, install_dir, asset_name, callback)
+    vim.fn.mkdir(install_dir, "p")
     local url = RELEASE_URL .. asset_name
+    local target_bin = install_dir .. "/" .. paths.bin_name
 
     vim.notify("[vinyl.nvim] Downloading 'vinyl-lsp' prebuilt binary from GitHub Releases...", vim.log.levels.INFO)
 
     local cmd
     if paths.is_windows then
-        local zip_file = paths.bin_dir .. "\\vinyl-lsp.zip"
+        local zip_file = install_dir .. "\\vinyl-lsp.zip"
         local ps_script = string.format(
             "Invoke-WebRequest -Uri '%s' -OutFile '%s'; Expand-Archive -Path '%s' -DestinationPath '%s' -Force; Remove-Item '%s'",
-            url, zip_file, zip_file, paths.bin_dir, zip_file
+            url, zip_file, zip_file, install_dir, zip_file
         )
         cmd = { "powershell", "-NoProfile", "-Command", ps_script }
     else
-        cmd = { "sh", "-c", string.format("curl -sL '%s' | tar -xz -C '%s'", url, paths.bin_dir) }
+        cmd = { "sh", "-c", string.format("curl -sL '%s' | tar -xz -C '%s'", url, install_dir) }
     end
 
     vim.system(cmd, { text = true }, function(obj)
         vim.schedule(function()
-            if obj.code == 0 and vim.fn.executable(paths.local_bin) == 1 then
+            if obj.code == 0 and vim.fn.executable(target_bin) == 1 then
                 vim.notify("[vinyl.nvim] Successfully downloaded 'vinyl-lsp'!", vim.log.levels.INFO)
-                callback(true, paths.local_bin)
+                callback(true, target_bin)
             else
                 vim.notify("[vinyl.nvim] Binary download failed. Trying cargo fallback...", vim.log.levels.WARN)
                 callback(false, nil)
@@ -77,13 +85,13 @@ local function install_via_cargo(callback)
     end
 
     vim.notify("[vinyl.nvim] Compiling 'vinyl-lsp' via Cargo...", vim.log.levels.INFO)
-    local cmd = { "cargo", "install", "--git", REPO_URL, "vinyl-lsp", "--branch", BRANCH }
+    local cmd = { "cargo", "install", "--git", REPO_URL, LSP_BIN }
 
     vim.system(cmd, { text = true }, function(obj)
         vim.schedule(function()
             if obj.code == 0 then
                 vim.notify("[vinyl.nvim] Successfully installed 'vinyl-lsp' via Cargo!", vim.log.levels.INFO)
-                callback(true, "vinyl-lsp")
+                callback(true, LSP_BIN)
             else
                 vim.notify("[vinyl.nvim] Cargo installation failed:\n" .. (obj.stderr or ""), vim.log.levels.ERROR)
                 callback(false, nil)
@@ -92,36 +100,68 @@ local function install_via_cargo(callback)
     end)
 end
 
+local function link_to_mason(paths, installed_bin)
+    vim.fn.mkdir(vim.fs.dirname(paths.mason_bin), "p")
+    if paths.is_windows then
+        vim.fn.system({ "cmd", "/c", "copy", "/Y", installed_bin, paths.mason_bin })
+    else
+        vim.fn.system({ "ln", "-sf", installed_bin, paths.mason_bin })
+    end
+    return paths.mason_bin
+end
+
 local function ensure_lsp(callback)
     local paths = get_paths()
 
-    -- 1. Check local plugin bin directory
-    if vim.fn.executable(paths.local_bin) == 1 then
-        callback(true, paths.local_bin)
+    -- 1. Check system PATH
+    if vim.fn.executable(LSP_BIN) == 1 then
+        callback(true, LSP_BIN)
         return
     end
 
-    -- 2. Check system PATH
-    if vim.fn.executable("vinyl-lsp") == 1 then
-        callback(true, "vinyl-lsp")
+    -- 2. Check local plugin bin directory
+    if vim.fn.executable(paths.plugin_local_bin) == 1 then
+        callback(true, paths.plugin_local_bin)
         return
     end
 
-    -- 3. Download prebuilt release binary
-    local asset_name = get_target_asset()
-    if asset_name then
-        download_binary(paths, asset_name, function(success, lsp_cmd)
-            if success then
-                callback(true, lsp_cmd)
-            else
-                -- 4. Fallback to cargo compile if download fails
-                install_via_cargo(callback)
-            end
-        end)
-    else
-        -- Target OS/Arch not recognized in release matrix
-        install_via_cargo(callback)
+    -- 3. Check Mason bin directory
+    if vim.fn.executable(paths.mason_bin) == 1 then
+        callback(true, paths.mason_bin)
+        return
     end
+
+    -- 4. Prompt user confirmation via vim.ui.input before downloading
+    vim.ui.input({
+        prompt = "[vinyl.nvim] 'vinyl-lsp' not found. Download prebuilt release? (y/N): ",
+    }, function(input)
+        if not input or not input:lower():match("^y") then
+            vim.notify("[vinyl.nvim] LSP download canceled.", vim.log.levels.WARN)
+            callback(false, nil)
+            return
+        end
+
+        local has_mason, _ = pcall(require, "mason-registry")
+        local install_dir = has_mason and paths.mason_pkg_dir or paths.plugin_bin_dir
+        local asset_name = get_target_asset()
+
+        if asset_name then
+            download_binary(paths, install_dir, asset_name, function(success, downloaded_bin)
+                if success then
+                    if has_mason then
+                        local mason_linked = link_to_mason(paths, downloaded_bin)
+                        callback(true, mason_linked)
+                    else
+                        callback(true, downloaded_bin)
+                    end
+                else
+                    install_via_cargo(callback)
+                end
+            end)
+        else
+            install_via_cargo(callback)
+        end
+    end)
 end
 
 function M.build_parser()
@@ -152,19 +192,21 @@ function M.build_parser()
                 if obj.code == 0 then
                     vim.notify("[vinyl.nvim] Parser built successfully via tree-sitter CLI!", vim.log.levels.INFO)
                 else
-                    vim.notify("[vinyl.nvim] Parser build failed:\n" .. (obj.stderr or "Unknown error"),
-                        vim.log.levels.ERROR)
+                    vim.notify(
+                        "[vinyl.nvim] Parser build failed:\n" .. (obj.stderr or "Unknown error"),
+                        vim.log.levels.ERROR
+                    )
                 end
             end)
         end)
     end
 
     if vim.fn.isdirectory(src_dir .. "/.git") == 1 then
-        vim.system({ "git", "-C", src_dir, "pull", "origin", BRANCH }, { text = true }, function()
+        vim.system({ "git", "-C", src_dir, "pull" }, { text = true }, function()
             vim.schedule(compile_parser)
         end)
     else
-        vim.system({ "git", "clone", "--depth", "1", "--branch", BRANCH, REPO_URL, src_dir }, { text = true }, function()
+        vim.system({ "git", "clone", "--depth", "1", REPO_URL, src_dir }, { text = true }, function()
             vim.schedule(compile_parser)
         end)
     end
