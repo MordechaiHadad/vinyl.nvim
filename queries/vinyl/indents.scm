@@ -1,27 +1,21 @@
-; Block structures and multi-line containers that increase indentation
+; 1. Delimiter Scopes (Handles block, struct, enum, tuple, array, and args bodies)
 [
-  (block)
-  (struct_definition)
-  (enum_definition)
-  (match_expression)
-  (struct_literal_fields)
-  (parameters)
-  (arguments)
-  (array_expression)
-  (array_type)
-  (tuple_expression)
-  (tuple_type)
-  (tuple_definition)
+  "{"
+  "("
+  "["
 ] @indent.begin
 
-; Closing delimiters that un-indent
 [
   "}"
   ")"
   "]"
 ] @indent.end
 
-; Branch control keywords
+; 2. Non-Delimiter Scopes
+; Indent arms inside a match statement (if they span multiple lines)
+(match_arm) @indent.begin
+
+; 3. Branch Keywords
 [
   "else"
 ] @indent.branch
