@@ -1,4 +1,4 @@
-; AST containers that establish an indented body
+; Containers that push interior lines right (+1 indent)
 [
   (block)
   (struct_definition)
@@ -14,14 +14,14 @@
   (tuple_definition)
 ] @indent.begin
 
-; Closing tokens that pull the line back left
+; Closing delimiters snap back to match their parent container's start column
 [
   "}"
   ")"
   "]"
-] @indent.end
+] @indent.branch
 
-; Align conditional branches
+; Control flow branches match their statement root
 [
   "else"
 ] @indent.branch
