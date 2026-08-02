@@ -1,21 +1,27 @@
-; 1. Delimiter Scopes (Handles block, struct, enum, tuple, array, and args bodies)
+; AST containers that establish an indented body
 [
-  "{"
-  "("
-  "["
+  (block)
+  (struct_definition)
+  (enum_definition)
+  (match_expression)
+  (struct_literal_fields)
+  (parameters)
+  (arguments)
+  (array_expression)
+  (array_type)
+  (tuple_expression)
+  (tuple_type)
+  (tuple_definition)
 ] @indent.begin
 
+; Closing tokens that pull the line back left
 [
   "}"
   ")"
   "]"
 ] @indent.end
 
-; 2. Non-Delimiter Scopes
-; Indent arms inside a match statement (if they span multiple lines)
-(match_arm) @indent.begin
-
-; 3. Branch Keywords
+; Align conditional branches
 [
   "else"
 ] @indent.branch
