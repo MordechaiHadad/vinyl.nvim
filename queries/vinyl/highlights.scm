@@ -20,7 +20,7 @@
   "loop"
   "break"
   "continue"
-  "match",
+  "match"
   "type"
 ] @keyword
 
