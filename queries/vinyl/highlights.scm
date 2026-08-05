@@ -58,11 +58,15 @@
   function: (scoped_value_expression
     function: (value_identifier) @function.call) (#set! "priority" 105))
 
+(call_expression
+  function: (type_identifier) @constructor (#set! "priority" 105))
+
 (scoped_value_expression
   function: (value_identifier) @function)
 
 ;; --- Types & Definitions ---
 (primitive_type) @type.builtin
+(reference_type "&" @operator)
 (simple_type (type_identifier) @type)
 (generic_type (type_identifier) @type)
 (struct_definition name: (type_identifier) @type)
@@ -73,7 +77,9 @@
 
 ;; --- Enum Variants & Scoped Types ---
 (enum_variant name: (type_identifier) @constructor)
-(enum_variant_pattern (type_identifier) @constructor)
+(enum_variant_pattern
+  type: (type_identifier) @type
+  variant: (type_identifier) @constructor)
 
 (scoped_type_expression
   type: [
