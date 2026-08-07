@@ -13,10 +13,10 @@
 ] @class.outer
 
 (struct_definition
-  field: (field_definition)* @class.inner)
+  (field_definition) @class.inner)
 
 (enum_definition
-  variant: (enum_variant)* @class.inner)
+  (enum_variant) @class.inner)
 
 ; --- Parameters & Arguments ---
 
@@ -29,7 +29,7 @@
 
 (if_expression) @conditional.outer
 (if_expression
-  block: (block) @conditional.inner)
+  (block) @conditional.inner)
 
 ; --- Loops ---
 
@@ -39,10 +39,10 @@
 ] @loop.outer
 
 (while_statement
-  block: (block) @loop.inner)
+  (block) @loop.inner)
 
 (loop_statement
-  block: (block) @loop.inner)
+  (block) @loop.inner)
 
 ; --- Blocks & Comments ---
 
