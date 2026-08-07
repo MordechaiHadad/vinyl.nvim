@@ -54,6 +54,14 @@
   module: (_) @module
   type: (type_identifier) @type)
 
+(qualified_value_path
+  module: (value_identifier) @keyword.import
+  (#any-of? @keyword.import "self" "package" "parent"))
+
+(qualified_type_path
+  module: (value_identifier) @keyword.import
+  (#any-of? @keyword.import "self" "package" "parent"))
+
 ;; --- Functions ---
 (function_definition
   name: (value_identifier) @function (#set! "priority" 105))
@@ -73,12 +81,6 @@
 (reference_type "&" @operator)
 (simple_type (type_identifier) @type)
 (generic_type (type_identifier) @type)
-(scoped_type
-  module: [
-    (value_identifier)
-    (type_identifier)
-  ] @module
-  name: (type_identifier) @type)
 (struct_definition name: (type_identifier) @type)
 (tuple_definition name: (type_identifier) @type)
 (enum_definition name: (type_identifier) @type)
