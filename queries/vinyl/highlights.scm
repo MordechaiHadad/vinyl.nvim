@@ -1,5 +1,4 @@
 ;; --- Fallbacks / Baselines (Must be at the top) ---
-;; --- Fallbacks / Baselines (Must be at the top) ---
 (value_identifier) @variable
 (type_identifier) @type
 
@@ -41,11 +40,19 @@
   (type_identifier)
 ] @module)
 
-(scoped_value_expression
-  module: [
-    (value_identifier)
-    (type_identifier)
-  ] @module)
+(import_wildcard) @punctuation.delimiter
+
+(import_group
+  (value_identifier) @function)
+
+;; --- Qualified Paths ---
+(qualified_value_path
+  module: (_) @module
+  function: (value_identifier) @function)
+
+(qualified_type_path
+  module: (_) @module
+  type: (type_identifier) @type)
 
 ;; --- Functions ---
 (function_definition
@@ -55,20 +62,23 @@
   function: (value_identifier) @function.call (#set! "priority" 105))
 
 (call_expression
-  function: (scoped_value_expression
-    function: (value_identifier) @function.call) (#set! "priority" 105))
-
-(call_expression
   function: (type_identifier) @constructor (#set! "priority" 105))
 
-(scoped_value_expression
-  function: (value_identifier) @function)
+(call_expression
+  function: (qualified_value_path
+    function: (value_identifier) @function.call) (#set! "priority" 105))
 
 ;; --- Types & Definitions ---
 (primitive_type) @type.builtin
 (reference_type "&" @operator)
 (simple_type (type_identifier) @type)
 (generic_type (type_identifier) @type)
+(scoped_type
+  module: [
+    (value_identifier)
+    (type_identifier)
+  ] @module
+  name: (type_identifier) @type)
 (struct_definition name: (type_identifier) @type)
 (tuple_definition name: (type_identifier) @type)
 (enum_definition name: (type_identifier) @type)
@@ -77,16 +87,14 @@
 
 ;; --- Enum Variants & Scoped Types ---
 (enum_variant name: (type_identifier) @constructor)
+
 (enum_variant_pattern
-  type: (type_identifier) @type
-  variant: (type_identifier) @constructor)
+  path: (qualified_type_path
+    type: (type_identifier) @constructor))
 
 (scoped_type_expression
-  type: [
-    (value_identifier)
-    (type_identifier)
-  ] @type
-  variant: (type_identifier) @constructor)
+  path: (qualified_type_path
+    type: (type_identifier) @constructor))
 
 ;; --- Fields & Properties ---
 (field_definition name: (value_identifier) @property)
