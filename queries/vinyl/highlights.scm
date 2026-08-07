@@ -44,6 +44,8 @@
 
 (import_group
   (value_identifier) @function)
+(import_group
+  (type_identifier) @type)
 
 ;; --- Qualified Paths ---
 (qualified_value_path
@@ -84,8 +86,15 @@
 (struct_definition name: (type_identifier) @type)
 (tuple_definition name: (type_identifier) @type)
 (enum_definition name: (type_identifier) @type)
-(struct_literal_expression name: (type_identifier) @type)
+(struct_literal_expression
+  name: (type_identifier) @type)
+(struct_literal_expression
+  name: (qualified_type_path
+    type: (type_identifier) @type))
 (struct_pattern (type_identifier) @type)
+(struct_pattern
+  (qualified_type_path
+    type: (type_identifier) @type))
 
 ;; --- Enum Variants & Scoped Types ---
 (enum_variant name: (type_identifier) @constructor)
